@@ -4,7 +4,7 @@
 /* eslint-disable react/no-unknown-property */
 import { Suspense, useRef, useLayoutEffect, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree, invalidate } from '@react-three/fiber';
-import { OrbitControls, useGLTF, useFBX, useProgress, Html, Environment, ContactShadows } from '@react-three/drei';
+import { OrbitControls, useGLTF, useProgress, Html, Environment, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 
 const isTouch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -76,13 +76,19 @@ const ModelInner = ({
   const tHov = useRef({ x: 0, y: 0 });
   const cHov = useRef({ x: 0, y: 0 });
 
-  const ext = useMemo(() => url.split('.').pop()?.toLowerCase(), [url]);
+  // Load the model (only GLB/GLTF supported)
+  const gltf = useGLTF(url) as any;
   const content = useMemo(() => {
-    if (ext === 'glb' || ext === 'gltf') return useGLTF(url).scene.clone();
-    if (ext === 'fbx') return useFBX(url).clone();
-    console.error('Unsupported format:', ext);
-    return null;
-  }, [url, ext]);
+    try {
+      if (gltf && gltf.scene) {
+        return gltf.scene.clone();
+      }
+      return null;
+    } catch (error) {
+      console.error('Error loading model:', error);
+      return null;
+    }
+  }, [gltf]);
 
   const pivotW = useRef(new THREE.Vector3());
   useLayoutEffect(() => {
@@ -110,7 +116,7 @@ const ModelInner = ({
     pivot.copy(pivotW.current);
     outer.current.rotation.set(initPitch, initYaw, 0);
 
-    if (autoFrame && camera.isPerspectiveCamera) {
+    if (autoFrame && (camera as any).isPerspectiveCamera) {
       const persp = camera as THREE.PerspectiveCamera;
       const fitR = sphere.radius * s;
       const d = (fitR * 1.2) / Math.sin((persp.fov * Math.PI) / 180 / 2);
